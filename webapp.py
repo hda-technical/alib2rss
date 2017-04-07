@@ -7,10 +7,12 @@ __copyright__ = "WWPass Corporation, 2012"
 __version__ = "1.0.0"
 
 # WebApp
-import sys, os
+import sys
+import os
 import locale
 import logging
 import httplib
+import traceback
 import tornado
 import tornado.httpserver
 import tornado.ioloop
@@ -20,26 +22,18 @@ from tornado.options import define, parse_config_file, parse_command_line, optio
 
 import datetime
 
-import json
-from urllib import quote, unquote
-from hashlib import md5
-import hashlib
-
 # Storage
 import pymongo
 
-
-from time import time
-
-from datetime import datetime
 import re
+from urllib import quote
 
 from bs4 import *
 from bs4 import Tag
 # TODO
 # @todo
 
-class AlibRecord:
+class AlibRecord(object):
     def __init__(self,tag):
         b = tag.next
         if not isinstance(b,Tag):
@@ -84,10 +78,10 @@ class ErrorHandler(tornado.web.RequestHandler):
         if options.debug:
             self.set_header('Content-Type', 'text/plain')
             return "Status %(code)d: %(message)s\n%(error)s\n"% {
-                    "code": status_code,
-                    "message": httplib.responses[status_code],
-                    "error": errorTraceback
-                    }
+                "code": status_code,
+                "message": httplib.responses[status_code],
+                "error": errorTraceback
+                }
         else:
             return
 
@@ -113,10 +107,10 @@ class RSS(BaseHandler):
     @tornado.web.asynchronous
     def get(self):
         http_client = tornado.httpclient.AsyncHTTPClient()
-        author = self.get_argument('author','');
-        title = self.get_argument('title','');
-        y1 = self.get_argument('y1','');
-        y2 = self.get_argument('y2','');
+        author = self.get_argument('author','')
+        title = self.get_argument('title','')
+        y1 = self.get_argument('y1','')
+        y2 = self.get_argument('y2','')
         query_string="author=+%s&title=+%s&seria=+&izdat=&isbnp=&god1=%s&god2=%s&cena1=&cena2=&sod=&bsonly=&lday=&minus=+&tipfind=&sortby=8&Bo1=%%CD%%E0%%E9%%F2%%E8"\
             % (quote(author.encode("cp1251")),quote(title.encode("cp1251")),quote(y1.encode("cp1251")),quote(y2.encode("cp1251")))
         self.title = "Alib — %s/%s" % (author,title)
@@ -133,21 +127,21 @@ class RSS(BaseHandler):
             try:
                 s = BeautifulSoup(response.body,'lxml')
                 def p_aftertable(tag):
-                    return (tag.name=='p' and hasattr(tag.previousSibling,'name') and tag.previousSibling.name=='hr')
-                p = s.body.find_all(p_aftertable)
+                    return tag.name=='p' and hasattr(tag.previousSibling,'name') and tag.previousSibling.name=='hr'
+                pt = s.body.find_all(p_aftertable)
                 items = []
-                if (p):
-                    p=p[0]
+                if pt:
+                    pt=pt[0]
                     while True:
                         try:
                             items.append(AlibRecord(p))
                         except:
                             pass
-                        p = p.nextSibling
+                        pt = pt.nextSibling
                         if not p:
                             break
-                        p = p.nextSibling
-                        if not p:
+                        pt = pt.nextSibling
+                        if not pt:
                             break
             except:
                 logging.exception("Parsing error:")
@@ -157,9 +151,9 @@ class RSS(BaseHandler):
             self.set_header("Content-Type", "application/rss+xml; charset=UTF-8")
             self.render('rss.xml',query_string = self.request.query, title=self.title, items=items)
 
-def ensure_indexes(db):
-    db.items.ensure_index('link',unique=True)
-    db.items.ensure_index('time')
+def ensure_indexes(database):
+    database.items.ensure_index('link',unique=True)
+    database.items.ensure_index('time')
 
 def setup_uid(user, group, logfile):
     assert os.getuid() == 0
@@ -233,6 +227,6 @@ if __name__ == "__main__":
 
     http_server = tornado.httpserver.HTTPServer(tornado.web.Application(urls, **settings), xheaders=True)
     http_server.listen(options.bind_port, options.bind_host)
-    logging.info("Server version %s binded to %s:%d" % (__version__, options.bind_host, options.bind_port))
+    logging.info("Server version %s binded to %s:%d", __version__, options.bind_host, options.bind_port)
     if options.user and options.group: setup_uid(options.user, options.group, options.log_file_prefix)
     tornado.ioloop.IOLoop.instance().start()
