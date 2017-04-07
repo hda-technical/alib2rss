@@ -159,15 +159,6 @@ class RSS(BaseHandler):
             self.set_header("Content-Type", "application/rss+xml; charset=UTF-8")
             self.render('rss.xml',query_string = self.request.query, title=self.title, items=items)
 
-def ensure_indexes(database):
-    try:
-        database.items.drop_index([('link',pymongo.ASCENDING),('time',pymongo.ASCENDING)])
-    except:
-        pass
-    try:
-        database.items.create_index([('time',pymongo.DESCENDING)])
-    except:
-        pass
 def setup_uid(user, group, logfile):
     assert os.getuid() == 0
     if unicode(user).isdecimal():
@@ -236,7 +227,6 @@ if __name__ == "__main__":
         logging.error("Cannot connect to Mongo")
 
     db = getattr(mongo,options.mongo_db)
-    ensure_indexes(db)
 
     http_server = tornado.httpserver.HTTPServer(tornado.web.Application(urls, **settings), xheaders=True)
     http_server.listen(options.bind_port, options.bind_host)
