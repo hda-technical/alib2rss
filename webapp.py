@@ -27,6 +27,7 @@ import pymongo
 
 import re
 from urllib import quote
+from hashlib import sha256
 
 from bs4 import *
 from bs4 import Tag
@@ -45,14 +46,21 @@ class AlibRecord(object):
             raise TypeError('Wrong tag for AlibRecord')
         a = a[0]
         self.link = a.attrs['href']
-        i = db.items.find_one({'link':self.link})
+        self.price = int((re.findall(r'Цена:\s*(\d+(\.\d+)?)\s*руб\.',self.description) or ((0,),))[0][0])
+        id_hash = sha256()
+        id_hash.update(self.title)
+        id_hash.update(str(self.price))
+        self.id = id_hash.hexdigest()
+        i = db.items.find_one({'_id':self.id})
         if not i:
-            self.time = datetime.utcnow()
+            self.time = datetime.datetime.utcnow()
             db.items.insert({
+                '_id':self.id,
                 'link':self.link,
                 'text':self.description,
                 'time':self.time,
-                'title':self.title
+                'title':self.title,
+                'price':self.price
                 })
         else:
             self.time = i['time']
@@ -114,7 +122,7 @@ class RSS(BaseHandler):
         query_string="author=+%s&title=+%s&seria=+&izdat=&isbnp=&god1=%s&god2=%s&cena1=&cena2=&sod=&bsonly=&lday=&minus=+&tipfind=&sortby=8&Bo1=%%CD%%E0%%E9%%F2%%E8"\
             % (quote(author.encode("cp1251")),quote(title.encode("cp1251")),quote(y1.encode("cp1251")),quote(y2.encode("cp1251")))
         self.title = "Alib — %s/%s" % (author,title)
-        logging.debug('Fetching %s',query_string)
+        logging.debug('Fetching %s',"http://www.alib.ru/findp.php4?"+query_string)
         http_client.fetch("http://www.alib.ru/findp.php4?"+query_string, self.handle_response)
 
     @tornado.web.asynchronous
@@ -134,7 +142,7 @@ class RSS(BaseHandler):
                     pt=pt[0]
                     while True:
                         try:
-                            items.append(AlibRecord(p))
+                            items.append(AlibRecord(pt))
                         except:
                             pass
                         pt = pt.nextSibling
@@ -152,9 +160,14 @@ class RSS(BaseHandler):
             self.render('rss.xml',query_string = self.request.query, title=self.title, items=items)
 
 def ensure_indexes(database):
-    database.items.ensure_index('link',unique=True)
-    database.items.ensure_index('time')
-
+    try:
+        database.items.drop_index([('link',pymongo.ASCENDING),('time',pymongo.ASCENDING)])
+    except:
+        pass
+    try:
+        database.items.create_index([('time',pymongo.DESCENDING)])
+    except:
+        pass
 def setup_uid(user, group, logfile):
     assert os.getuid() == 0
     if unicode(user).isdecimal():
