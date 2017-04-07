@@ -25,7 +25,7 @@ from urllib import quote, unquote
 from hashlib import md5
 import hashlib
 
-# Storage 
+# Storage
 import pymongo
 
 
@@ -37,7 +37,7 @@ import re
 from bs4 import *
 from bs4 import Tag
 # TODO
-# @todo 
+# @todo
 
 class AlibRecord:
     def __init__(self,tag):
@@ -62,33 +62,31 @@ class AlibRecord:
                 })
         else:
             self.time = i['time']
-        
-
 
 class ErrorHandler(tornado.web.RequestHandler):
     def __init__(self, application, request, status_code):
         tornado.web.RequestHandler.__init__(self, application, request)
         self.set_status(status_code)
-    
+
     def get_error_html(self, status_code, **kwargs):
         if status_code == 404:
             # return tornado.template.Loader(os.path.join(base_path, options.templates_path)).load('page.html').generate()
-            return 
-        
+            return
+
         errorTraceback = repr(self.request)
-        
+
         if "exc_info" in kwargs:
             for line in traceback.format_exception(*kwargs["exc_info"]):
                 errorTraceback += line
-        
+
         logging.exception(errorTraceback)
-        
+
         if options.debug:
             self.set_header('Content-Type', 'text/plain')
             return "Status %(code)d: %(message)s\n%(error)s\n"% {
                     "code": status_code,
                     "message": httplib.responses[status_code],
-                    "error": errorTraceback 
+                    "error": errorTraceback
                     }
         else:
             return
@@ -98,19 +96,19 @@ class BaseHandler(tornado.web.RequestHandler):
     def __init__(self, application, request, **kwargs):
         tornado.web.RequestHandler.__init__(self, application, request, **kwargs)
         self._user = None
-    
+
     def render(self, template_name, **kwargs):
         super(BaseHandler, self).render(
-            template_name, 
-            debug=options.debug, 
-            current_user=self.get_current_user(), 
+            template_name,
+            debug=options.debug,
+            current_user=self.get_current_user(),
             **kwargs
             )
-        
+
 class Home(BaseHandler):
     def get(self):
         self.render('home.html')
-    
+
 class RSS(BaseHandler):
     @tornado.web.asynchronous
     def get(self):
@@ -162,7 +160,7 @@ class RSS(BaseHandler):
 def ensure_indexes(db):
     db.items.ensure_index('link',unique=True)
     db.items.ensure_index('time')
-    
+
 def setup_uid(user, group, logfile):
     assert os.getuid() == 0
     if unicode(user).isdecimal():
@@ -180,7 +178,7 @@ def setup_uid(user, group, logfile):
         os.chown(logfile, uid, gid)
     os.setgid(gid)
     os.setuid(uid)
-    
+
 class Validate(BaseHandler):
     def get(self):
         self.write('4e75e424876ee4d2a926221cbdd98954b0fb3f6d')
@@ -191,7 +189,7 @@ if __name__ == "__main__":
         ("/rss", RSS),
         ("/1178e006e3d3a607fa8c982bd218a48d.txt", Validate),
     ]
-    
+
     define("debug", type=bool, default=False)
     define("user",default='')
     define("group",default='')
@@ -205,7 +203,7 @@ if __name__ == "__main__":
 
     parse_config_file(sys.argv[1])
     parse_command_line()
-    
+
     locale.setlocale(locale.LC_ALL, "%s.UTF-8" % options.locale)
     reload(sys)
     sys.setdefaultencoding('utf-8')
@@ -216,9 +214,9 @@ if __name__ == "__main__":
         autoescape=None,
         cookie_secret="i4KbrDYElSYYqoTUD8v3IzLh/s6c/F7QkaIusLyrIoU="
     )
-    
+
     tornado.web.ErrorHandler = ErrorHandler
-    
+
     for host in options.mongo_hosts:
         try:
             h,p = host.split(':')
@@ -229,7 +227,7 @@ if __name__ == "__main__":
             logging.exception("Cannot connect to Mongo host: %s",host)
     else:
         logging.error("Cannot connect to Mongo")
-    
+
     db = getattr(mongo,options.mongo_db)
     ensure_indexes(db)
 
