@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__author__ = "Vladimir Korshunov <v.korshunov@wwpass.com>"
 __author__ = "Rostislav Kondratenko <r.kondratenko@wwpass.com>"
-__copyright__ = "WWPass Corporation, 2012"
+__copyright__ = "Rostislav Kondratenko, 2012"
 __version__ = "1.0.0"
 
 # WebApp

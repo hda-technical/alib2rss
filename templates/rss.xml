@@ -19,7 +19,7 @@
          <link>{{escape(item.link)}}</link>
          <description>{{escape(item.description)}}</description>
          <pubDate>{{item.time.strftime("%a, %d %b %Y %H:%M:%S GMT")}}</pubDate>
-         <guid>{{escape(item.link)}}</guid>
+         <guid>{{escape(item.id)}}</guid>
       </item>
       {% end %}
    </channel>
