@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 __author__ = "Rostislav Kondratenko <r.kondratenko@wwpass.com>"
@@ -10,7 +10,7 @@ import sys
 import os
 import locale
 import logging
-import httplib
+import http.client
 import traceback
 import tornado
 import tornado.httpserver
@@ -25,18 +25,20 @@ import datetime
 import pymongo
 
 import re
-from urllib import quote
+from urllib.parse import quote
 from hashlib import sha256
 
 from bs4 import *
 from bs4 import Tag
+import importlib
 # TODO
 # @todo
 
+
 class AlibRecord(object):
-    def __init__(self,tag):
-        b = tag.next
-        if not isinstance(b,Tag):
+    def __init__(self, tag: Tag):
+        b = next(tag.children)
+        if not isinstance(b, Tag):
             raise TypeError('Wrong tag for AlibRecord')
         self.title = b.get_text()
         self.description = tag.__str__()
@@ -47,22 +49,23 @@ class AlibRecord(object):
         self.link = a.attrs['href']
         self.price = int((re.findall(r'Цена:\s*(\d+(\.\d+)?)\s*руб\.',self.description) or ((0,),))[0][0])
         id_hash = sha256()
-        id_hash.update(self.title)
-        id_hash.update(str(self.price))
+        id_hash.update(self.title.encode())
+        id_hash.update(str(self.price).encode())
         self.id = id_hash.hexdigest()
-        i = db.items.find_one({'_id':self.id})
+        i = db.items.find_one({'_id': self.id})
         if not i:
             self.time = datetime.datetime.utcnow()
-            db.items.insert({
-                '_id':self.id,
-                'link':self.link,
-                'text':self.description,
-                'time':self.time,
-                'title':self.title,
-                'price':self.price
+            db.items.insert_one({
+                '_id': self.id,
+                'link': self.link,
+                'text': self.description,
+                'time': self.time,
+                'title': self.title,
+                'price': self.price
                 })
         else:
             self.time = i['time']
+
 
 class ErrorHandler(tornado.web.RequestHandler):
     def __init__(self, application, request, status_code):
@@ -86,7 +89,7 @@ class ErrorHandler(tornado.web.RequestHandler):
             self.set_header('Content-Type', 'text/plain')
             return "Status %(code)d: %(message)s\n%(error)s\n"% {
                 "code": status_code,
-                "message": httplib.responses[status_code],
+                "message": http.client.responses[status_code],
                 "error": errorTraceback
                 }
         else:
@@ -111,8 +114,8 @@ class Home(BaseHandler):
         self.render('home.html')
 
 class RSS(BaseHandler):
-    @tornado.web.asynchronous
-    def get(self):
+
+    async def get(self):
         http_client = tornado.httpclient.AsyncHTTPClient()
         author = self.get_argument('author','')
         title = self.get_argument('title','')
@@ -121,11 +124,8 @@ class RSS(BaseHandler):
         query_string="author=+%s&title=+%s&seria=+&izdat=&isbnp=&god1=%s&god2=%s&cena1=&cena2=&sod=&bsonly=&lday=&minus=+&tipfind=&sortby=8&Bo1=%%CD%%E0%%E9%%F2%%E8"\
             % (quote(author.encode("cp1251")),quote(title.encode("cp1251")),quote(y1.encode("cp1251")),quote(y2.encode("cp1251")))
         self.title = "Alib — %s/%s" % (author,title)
-        logging.debug('Fetching %s',"http://www.alib.ru/findp.php4?"+query_string)
-        http_client.fetch("http://www.alib.ru/findp.php4?"+query_string, self.handle_response)
-
-    @tornado.web.asynchronous
-    def handle_response(self,response):
+        logging.debug('Fetching %s', "http://www.alib.ru/findp.php4?"+query_string)
+        response = await http_client.fetch("http://www.alib.ru/findp.php4?"+query_string)
         if response.error:
             logging.error(response.error)
             self.set_status(response.code)
@@ -160,12 +160,12 @@ class RSS(BaseHandler):
 
 def setup_uid(user, group, logfile):
     assert os.getuid() == 0
-    if unicode(user).isdecimal():
+    if str(user).isdecimal():
         uid = int(user)
     else:
         import pwd
         uid = pwd.getpwnam(user)[2]
-    if unicode(group).isdecimal():
+    if str(group).isdecimal():
         gid = int(group)
     else:
         import grp
@@ -199,11 +199,6 @@ if __name__ == "__main__":
     define("mongo_db")
 
     parse_config_file(sys.argv[1])
-    parse_command_line()
-
-    locale.setlocale(locale.LC_ALL, "%s.UTF-8" % options.locale)
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
 
     settings = dict(
         debug=options.debug,
